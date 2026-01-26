@@ -1,0 +1,57 @@
+#define _POSIX_C_SOURCE 200809L
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+int main(void) {
+  char *line = NULL;
+  size_t cap = 0;
+
+  while (1) {
+    printf("Enter programs to run.\n> ");
+    fflush(stdout);
+
+    ssize_t n = getline(&line, &cap, stdin);
+    if (n == -1) { // Ctrl-D / EOF
+      printf("\n");
+      break;
+    }
+
+    // Strip trailing newline
+    if (n > 0 && line[n - 1] == '\n') {
+      line[n - 1] = '\0';
+    }
+
+    // Optional challenge: exit on empty line
+    // if (line[0] == '\0') break;
+
+    pid_t pid = fork();
+    if (pid < 0) {
+      perror("fork");
+      continue;
+    }
+
+    if (pid == 0) {
+      // Child: run the program. First arg must be program name.
+      execl(line, line, (char *)NULL);
+
+      // If execl returns, it failed
+      printf("Exec failure\n");
+      // Optionally show reason:
+      // fprintf(stderr, "Exec failure: %s\n", strerror(errno));
+      _exit(1);
+    }
+
+    // Parent: wait for child
+    int status = 0;
+    if (waitpid(pid, &status, 0) < 0) {
+      perror("waitpid");
+    }
+  }
+
+  free(line);
+  return 0;
+}
