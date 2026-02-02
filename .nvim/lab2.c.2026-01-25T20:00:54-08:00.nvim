@@ -1,0 +1,25 @@
+#define _POSIX_C_SOURCE 200809L
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(void) {
+  char *line = NULL;
+  size_t cap = 0;
+
+  while (1) {
+    printf("Enter programs to run.\n> ");
+    fflush(stdout);
+
+    ssize_t n = getline(&line, &cap, stdin);
+    if (n == -1) { // EOF or error
+      printf("\n");
+      break;
+    }
+
+    printf("You typed: %s", line);
+  }
+
+  free(line);
+  return 0;
+}
+

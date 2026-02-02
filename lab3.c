@@ -1,0 +1,104 @@
+// lab3.c
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define HISTORY_SIZE 5
+
+typedef struct {
+  char *lines[HISTORY_SIZE];
+  int count; // number of valid lines stored (0..HISTORY_SIZE)
+  int next;  // index to overwrite next (0..HISTORY_SIZE-1)
+} History;
+
+static void history_init(History *h) {
+  h->count = 0;
+  h->next = 0;
+  for (int i = 0; i < HISTORY_SIZE; i++) {
+    h->lines[i] = NULL;
+  }
+}
+
+static void history_free(History *h) {
+  for (int i = 0; i < HISTORY_SIZE; i++) {
+    free(h->lines[i]);
+    h->lines[i] = NULL;
+  }
+  h->count = 0;
+  h->next = 0;
+}
+
+static void history_add(History *h, const char *line) {
+  // overwrite slot h->next
+  free(h->lines[h->next]);
+  h->lines[h->next] = strdup(line);
+  if (h->lines[h->next] == NULL) {
+    perror("strdup");
+    exit(1);
+  }
+
+  h->next = (h->next + 1) % HISTORY_SIZE;
+  if (h->count < HISTORY_SIZE) {
+    h->count++;
+  }
+}
+
+static void history_print(const History *h) {
+  int start;
+
+  if (h->count == 0) {
+    return; // nothing to print
+  }
+
+  if (h->count < HISTORY_SIZE) {
+    start = 0; // not wrapped yet; entries are in 0..count-1
+    for (int i = 0; i < h->count; i++) {
+      fputs(h->lines[start + i], stdout);
+    }
+  } else {
+    // wrapped: oldest entry is at index "next"
+    start = h->next;
+    for (int i = 0; i < HISTORY_SIZE; i++) {
+      int idx = (start + i) % HISTORY_SIZE;
+      fputs(h->lines[idx], stdout);
+    }
+  }
+}
+
+static int is_print_command(const char *line) {
+  // line includes trailing '\n' usually (unless EOF w/out newline).
+  // Accept exactly "print\n" or "print"
+  return (strcmp(line, "print\n") == 0) || (strcmp(line, "print") == 0);
+}
+
+int main(void) {
+  History hist;
+  history_init(&hist);
+
+  char *buf = NULL;
+  size_t cap = 0;
+
+  while (1) {
+    printf("Enter input: ");
+    fflush(stdout);
+
+    ssize_t nread = getline(&buf, &cap, stdin);
+    if (nread == -1) {
+      // EOF (Ctrl+D) or error
+      putchar('\n');
+      break;
+    }
+
+    // Store the line in history first (so "print" is included)
+    history_add(&hist, buf);
+
+    if (is_print_command(buf)) {
+      history_print(&hist);
+    }
+  }
+
+  free(buf);
+  history_free(&hist);
+  return 0;
+}
